@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101b1c">
-  <meta name="description" content="A distraction-free, offline exercise stopwatch with per-round routines and optional on-device voice commands.">
+  <meta name="description" content="A distraction-free, offline exercise stopwatch with per-round routines and optional browser voice commands.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="./style.css">
-  <title>MOVE · Freeform Exercise Timer</title>
+  <title>MOVE · Freeform Exercise Timer · v4</title>
 </head>
 <body>
   <div class="shell">
@@ -26,8 +26,10 @@
         <div class="intro">
           <div class="eyebrow">YOUR MOVEMENT / YOUR PACE</div>
           <h1>Move on<br><em>your terms.</em></h1>
-          <p>No countdowns. No limits. Build your rounds and simply say <b>“start”</b> and <b>“stop”</b> — or use the large buttons.</p>
+          <p>No limits. Build your rounds and say <b>“start”</b> and <b>“stop”</b> — or use the buttons. Your time is revealed only when you finish.</p>
         </div>
+
+        <button id="historyButton" class="history-launch" type="button"><span><span class="history-launch-icon">◷</span> Workout history</span><span id="historyCount" class="history-count">0 SAVED</span></button>
 
         <div class="panel setup-panel">
           <div class="section-title"><span class="step-num">01</span><div><h2>Choose your rounds</h2><p>Each round has its own exercise order.</p></div></div>
@@ -35,15 +37,17 @@
           <div class="select-wrap wide-select">
             <select id="roundCount" aria-label="Number of rounds"></select>
           </div>
+          <label class="toggle-row copy-toggle"><span><b>Use Round 1 for every round</b><small>ON copies Round 1’s exercises and order to all rounds. OFF lets you edit each round separately.</small></span><input id="copyRoundToggle" type="checkbox"><span class="switch"></span></label>
         </div>
 
         <div class="panel routine-panel">
           <div class="section-title"><span class="step-num">02</span><div><h2>Build each round</h2><p>Choose the exercises and arrange their order.</p></div></div>
           <div id="roundTabs" class="round-tabs" role="tablist" aria-label="Choose round to edit"></div>
           <div class="round-subheading"><h3 id="roundHeading">ROUND 1</h3><span id="exerciseCount" class="tiny-tag">1 EXERCISE</span></div>
+          <div id="copyRoundNotice" class="copy-notice" hidden><span>Linked to Round 1. Edit the master list to change every round.</span><button id="editRoundOneButton" type="button">Edit Round 1</button></div>
           <div id="exerciseRows" class="exercise-rows"></div>
           <button id="addExerciseBtn" class="add-btn" type="button"><span aria-hidden="true">＋</span> Add exercise</button>
-          <p class="microcopy">Up to 10 exercises per round. The same exercise can appear more than once.</p>
+          <p class="microcopy">Up to 10 exercises per round. PB beside each name means your personal best on this device.</p>
         </div>
 
         <div class="panel settings-panel">
@@ -51,9 +55,14 @@
           <label class="toggle-row"><span><b>Gong when an exercise starts</b><small>Distinct sound at every start</small></span><input id="gongToggle" type="checkbox" checked><span class="switch"></span></label>
           <label class="toggle-row"><span><b>Spoken announcements</b><small>Next exercise, round changes and final-round completion</small></span><input id="announceToggle" type="checkbox" checked><span class="switch"></span></label>
           <div class="voice-box">
-            <div class="voice-box-head"><span class="voice-emoji" aria-hidden="true">◉</span><div><b>Hands-free “start” / “stop”</b><p>Only on-device speech recognition is used. No online speech service.</p></div></div>
-            <button id="voiceButton" class="voice-btn" type="button">Check offline voice support</button>
-            <p id="voiceStatus" class="voice-status" role="status" aria-live="polite">Touch controls work on every supported mobile browser. Voice recognition requires browser support and microphone permission.</p>
+            <div class="voice-box-head"><span class="voice-emoji" aria-hidden="true">◉</span><div><b>Hands-free “start” / “stop”</b><p>Choose your listening method. Enable it once, grant microphone access, then say “start” and “stop”.</p></div></div>
+            <fieldset class="voice-mode-options"><legend>VOICE RECOGNITION MODE</legend>
+              <label class="voice-mode-option"><input id="voiceCompatibleMode" type="radio" name="voiceMode" checked><span><b>Compatible (recommended)</b><small>Works with more mobile browsers, including Safari where supported. May require internet; the browser may send audio to its recognition service.</small></span></label>
+              <label class="voice-mode-option"><input id="voiceOfflineMode" type="radio" name="voiceMode"><span><b>Offline only</b><small>Voice recognition stays on your device. Requires browser support and a locally installed English model.</small></span></label>
+            </fieldset>
+            <button id="voiceButton" class="voice-btn" type="button">Enable voice commands</button>
+            <p id="voiceStatus" class="voice-status" role="status" aria-live="polite">Tap Enable and grant microphone access. A listening indicator will appear during the workout.</p>
+            <p id="voiceLastHeard" class="voice-last-heard">No command heard yet.</p>
           </div>
         </div>
 
@@ -69,22 +78,30 @@
         <div class="progress-meta"><div><span class="meta-label">ROUND</span><strong id="roundProgress">1 / 1</strong></div><div class="meta-right"><span class="meta-label">EXERCISE</span><strong id="exerciseProgress">1 / 1</strong></div></div>
         <div class="main-stage">
           <div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div>
-          <div class="stage-core" id="activeStage"><span class="stage-caption">YOU'RE MOVING</span><div class="moving-field"><div id="floatingName" class="floating-name">WALL-SIT</div></div><span class="hidden-clock-note">● &nbsp; TIME HIDDEN WHILE ACTIVE</span></div>
-          <div class="stage-core review-stage" id="reviewStage" hidden><span class="stage-caption">EXERCISE RECORDED</span><div class="review-name" id="reviewName">WALL-SIT</div><div class="result-time" id="resultTime">00:00.0</div><span class="result-caption">ELAPSED TIME</span><div class="next-cue" id="nextCue">UP NEXT · BRIDGE</div></div>
+          <div class="stage-core" id="activeStage"><span class="stage-caption">YOU'RE MOVING</span><div class="moving-field"><div class="floating-group"><div id="floatingName" class="floating-name">WALL-SIT</div><div id="activePB" class="floating-pb">PERSONAL BEST · —</div></div></div><span class="hidden-clock-note">● &nbsp; TIME HIDDEN WHILE ACTIVE</span></div>
+          <div class="stage-core review-stage" id="reviewStage" hidden><span class="stage-caption">EXERCISE RECORDED</span><div class="review-name" id="reviewName">WALL-SIT</div><div class="result-time" id="resultTime">00:00.0</div><span class="result-caption">ELAPSED TIME</span><span id="reviewPB" class="review-pb">PERSONAL BEST · —</span><div class="next-cue" id="nextCue">NEXT ANNOUNCEMENT IN 5s</div></div>
         </div>
         <div class="workout-actions"><button id="stopButton" class="stop-btn" type="button">STOP <span>■</span></button><button id="nextButton" class="primary-btn" type="button" hidden><span>Start next exercise</span><span class="button-arrow">↗</span></button><span id="workoutHint" class="workout-hint">Say “stop” or tap STOP when you're ready.</span></div>
+        <div class="voice-workout-row"><div id="voiceWorkoutStatus" class="voice-workout-status" role="status">Voice OFF — use the START / STOP buttons</div><button id="voiceWorkoutButton" class="voice-workout-button" type="button" aria-pressed="false">Mic: OFF · tap to enable</button></div>
         <div class="wake-pill" id="wakeStatus" role="status">Screen wake lock: requesting…</div>
       </section>
 
       <section id="completeScreen" class="screen complete-screen" hidden>
         <div class="finish-hero"><div class="finish-ornament" aria-hidden="true">✳</div><div class="eyebrow">WORKOUT COMPLETE</div><h1>Every second<br><em>was yours.</em></h1><p id="finishDescription">All rounds completed.</p></div>
-        <div class="finish-panel panel"><div class="result-overview"><div><span class="meta-label">ROUNDS</span><strong id="completedRounds">1</strong></div><div><span class="meta-label">EXERCISES</span><strong id="completedExercises">1</strong></div><div><span class="meta-label">TOTAL MOVEMENT</span><strong id="totalElapsed">00:00.0</strong></div></div><h2 class="history-title">Your exercise times</h2><div id="resultsList" class="results-list"></div></div>
+        <div class="finish-panel panel"><div class="result-overview"><div><span class="meta-label">ROUNDS</span><strong id="completedRounds">1</strong></div><div><span class="meta-label">EXERCISES</span><strong id="completedExercises">1</strong></div><div><span class="meta-label">TOTAL MOVEMENT</span><strong id="totalElapsed">00:00.0</strong></div></div><button id="historyFinishedButton" class="history-launch finish-history" type="button">View workout history (1)</button></div>
         <div class="post-workout-note" id="postWorkoutNote">Keeping the screen awake for 1 minute after your final exercise.</div>
         <button class="primary-btn" id="newWorkoutButton" type="button"><span>Back to my routine</span><span class="button-arrow">↗</span></button>
       </section>
     </main>
     <footer class="footer"><span>MOVE / BUILT FOR OFFLINE USE</span><span>NO PRESET TIMES. JUST MOVEMENT.</span></footer>
   </div>
+  <dialog id="historyDialog" class="history-dialog" aria-labelledby="historyTitle">
+    <div class="history-dialog-inner">
+      <div class="history-modal-top"><div><span class="eyebrow">YOUR PROGRESS</span><h2 id="historyTitle">Last 10 workouts</h2></div><button id="historyCloseButton" class="history-close" type="button" aria-label="Close history">×</button></div>
+      <div id="historyList" class="history-list"></div>
+      <p id="historyFootnote" class="history-footnote">These workouts and personal bests are saved on this device only. Clearing browser data will erase them.</p>
+    </div>
+  </dialog>
   <div class="sr-only" id="announcer" role="status" aria-live="polite"></div>
   <script src="./app.js" defer></script>
 </body>

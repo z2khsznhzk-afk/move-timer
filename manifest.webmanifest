@@ -1,7 +1,7 @@
 {
   "name": "MOVE — Freeform Exercise Timer",
   "short_name": "MOVE Timer",
-  "description": "Offline mobile exercise stopwatch with voice announcements for each exercise, round changes, and workout completion.",
+  "description": "Offline exercise stopwatch with compatible or local hands-free control, five-second transition cues, records, and workout history.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
